@@ -1,0 +1,9 @@
+# WebStorm Settings
+.idea
+
+# System Settings
+**.DS_Store
+
+# Maintains Default SDF Directory Structure
+!**/.keep
+#!FileCabinet/SuiteScripts/**/.keep
