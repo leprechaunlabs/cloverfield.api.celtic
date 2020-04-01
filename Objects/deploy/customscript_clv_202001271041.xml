@@ -1,0 +1,25 @@
+<suitelet scriptid="customscript_clv_202001271041">
+  <description></description>
+  <isinactive>F</isinactive>
+  <name>Get External Job Status</name>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>T</notifyowner>
+  <notifyuser>F</notifyuser>
+  <scriptfile>[/SuiteScripts/cloverfield/src/suitelet/clv.suitelet.job.status.js]</scriptfile>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_clv_202001271041">
+      <allemployees>F</allemployees>
+      <allpartners>F</allpartners>
+      <allroles>T</allroles>
+      <audslctrole></audslctrole>
+      <eventtype>GET</eventtype>
+      <isdeployed>T</isdeployed>
+      <isonline>T</isonline>
+      <loglevel>DEBUG</loglevel>
+      <runasrole>[scriptid=customrole_lp_lpflow_role_integrations]</runasrole>
+      <status>RELEASED</status>
+      <title>Get External Job Status</title>
+    </scriptdeployment>
+  </scriptdeployments>
+</suitelet>

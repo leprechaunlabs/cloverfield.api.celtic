@@ -1,4 +1,19 @@
 <manifest projecttype="ACCOUNTCUSTOMIZATION">
   <projectname>Cloverfield API: Celtic</projectname>
   <frameworkversion>1.0</frameworkversion>
+  <dependencies>
+    <features>
+      <feature required="true">SERVERSIDESCRIPTING</feature>
+      <feature required="true">CREATESUITEBUNDLES</feature>
+      <feature required="true">CRM</feature>
+    </features>
+    <files>
+      <file>/SuiteScripts/cloverfield/config.json</file>
+      <file>/SuiteScripts/cloverfield/config-v2.json</file>
+    </files>
+    <objects>
+      <!-- ROLES -->
+      <object>customrole_lp_lpflow_role_integrations</object>
+    </objects>
+  </dependencies>
 </manifest>
