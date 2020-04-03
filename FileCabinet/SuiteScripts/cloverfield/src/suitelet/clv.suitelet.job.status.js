@@ -7,118 +7,144 @@
  * @author Miquel Brazil <miquel@leprechaunpromotions.com>
  */
 
-define(['N/https', 'N/search', "N/record", "N/log"], function (https, search, record, log) {
+define(['N/https', 'N/search', "N/record"], function (https, search, record) {
 
-    var id = "";
-    var jobnumber;
-    var data = [];
-    var objRecord;
     var orderStatusVariables = [];
-    var has_data = [];
+    var _job = {};
 
-    function loadRecord() {
-        objRecord = record.load({
-            type: record.Type.SALES_ORDER,
-            id: id
-        });
-        orderStatusVariables.push({
-            approval_request: objRecord.getValue({fieldId: "custbody_lp_status_approval_request"}),
-            artwork_setup: objRecord.getValue({fieldId: "custbody_lp_status_artwork_setup"}),
-            payment: objRecord.getValue({fieldId: "custbody_lp_status_payment"}),
-            stock: objRecord.getValue({fieldId: "custbody_lp_status_stock"})
-        });
+    function _loadJob(finder) {
+        try {
+            var job = search.lookupFields({
+                type: search.Type.SALES_ORDER, // @todo: consider how to use finder.recordType
+                id: finder.id,
+                columns: [
+                    'tranid',
+                    'otherrefnum',
+                    'entity',
+                    'saleseffectivedate', // not sure what this field is
+                    'custbody_lp_status_artwork_setup',
+                    'custbody_lp_status_approval_request',
+                    'custbody_lp_status_payment',
+                    'custbody_lp_status_stock',
+                    'custbody_lp_status_artwork_setup',
+                    'custbody_lp_email_approval',
+                    'shipaddress',
+                    'shipcarrier',
+                    'shipmethod',
+                    'shipdate',
+                    'custbody_lp_shipping_arrival_date',
+                    'custbody_lp_approval_request',
+                    'trackingnumbers'
+                ]
+            });
 
-        data.push({
-            custbody_lp_status_stock: objRecord.getValue({fieldId: "custbody_lp_status_stock"}),
-            custbody_lp_status_artwork_setup: objRecord.getValue({fieldId: "custbody_lp_status_artwork_setup"}),
-            custbody_lp_status_payment: objRecord.getValue({fieldId: "custbody_lp_status_payment"}),
-            custbody_lp_status_approval_request: objRecord.getValue({fieldId: "custbody_lp_status_approval_request"}),
-            tranid: objRecord.getText({fieldId: "tranid"}),
-            otherrefnum: objRecord.getText({fieldId: "otherrefnum"}),
-            saleseffectivedate: objRecord.getText({fieldId: "saleseffectivedate"}),
-            entity: objRecord.getText({fieldId: "entity"}),
-            custbody_lp_email_approval: objRecord.getText({fieldId: "custbody_lp_email_approval"}),
-            custbody_lpl_so_total_less_shipcost: objRecord.getText({fieldId: "custbody_lpl_so_total_less_shipcost"}),
-            shipaddress: objRecord.getText({fieldId: "shipaddress"}),
-            carrier: objRecord.getText({fieldId: "carrier"}),
-            shipmethod: objRecord.getText({fieldId: "shipmethod"}),
-            shipdate: objRecord.getText({fieldId: "shipdate"}),
-            custbody_lp_shipping_arrival_date: objRecord.getText({fieldId: "custbody_lp_shipping_arrival_date"}),
-            custbody_lp_approval_request: objRecord.getText({fieldId: "custbody_lp_approval_request"}),
-            linkedtrackingnumbers: objRecord.getText({fieldId: "linkedtrackingnumbers"}),
-            status: getOrderStatus(orderStatusVariables),
-            has_data: "true"
-        });
+            job.status = _getStatus(job);
+            return job;
+
+        } catch (e) {
+            return e;
+        }
     }
 
-    function getOrderStatus(orderStatusVariables) {
-        var status = {text_status: "Your Order Is Being Processed ", value_status: "-1"};
-        if (orderStatusVariables[0].stock === "2") {
-            status = {text_status: "Stock Issues", value_status: "2"};
-            return status;
+    function _getStatus(job) {
+        /**
+         * build system for checking each status component and returning a value
+         * also need mechanism for determining value of Array and Objects
+         */
+
+        var status = {
+            code: null,
+            message: ''
+        };
+
+        if (job.custbody_lp_status_stock[0].value === '2') {
+            status.code = 31; // Stock Issue
+        } else if (job.custbody_lp_status_artwork_setup[0].value === '4' || job.custbody_lp_status_artwork_setup[0].value === '10') {
+            status.code = 21; // Artwork Issue
+        } else if (job.custbody_lp_status_artwork_setup[0].value === '3' || job.custbody_lp_status_artwork_setup[0].value === '9') {
+            status.code = 26; // Revising
+        } else if ((job.custbody_lp_status_approval_request[0].value === '4' || job.custbody_lp_status_approval_request[0].value === '8') && job.custbody_lp_status_payment[0].value === '5') {
+            status.code = 11; // Pending Response & Payment
+        } else if (job.custbody_lp_status_approval_request[0].value === '4' || job.custbody_lp_status_approval_request[0].value === '8') {
+            status.code = 16; // Pending Response
+        } else if (job.custbody_lp_status_approval_request[0].value === '2' || job.custbody_lp_status_approval_request[0].value === '6') {
+            status.code = 25; // Revision Request Received
+        } else if (
+            (job.custbody_lp_status_approval_request[0].value === '1' || job.custbody_lp_status_approval_request[0].value === '5')
+            && (job.custbody_lp_status_artwork_setup[0].value === '1' || job.custbody_lp_status_artwork_setup[0].value === '7')
+            && (job.custbody_lp_status_payment[0].value === '1' || job.custbody_lp_status_payment[0].value === '2' || job.custbody_lp_status_payment[0].value === '3')
+            && (job.custbody_lp_status_stock[0].value === '1' || job.custbody_lp_status_stock[0].value === '3')
+        ){
+            if (job.trackingnumbers) {
+                status.code = '41' // Job Shipped
+            } else {
+                status.code = '51' // in Production
+            }
         }
-        if (orderStatusVariables[0].artwork_setup === "4") {
-            status = {text_status: "Art Issues", value_status: "4"};
-            return status;
-        }
-        if (orderStatusVariables[0].approval_request === "2") {
-            status = {text_status: "Queued For Revision", value_status: "2"};
-            return status;
-        }
-        if (orderStatusVariables[0].approval_request === "3") {
-            status = {text_status: "Pending Response", value_status: "3"};
-            return status;
-        }
-        if (orderStatusVariables[0].payment === "5") {
-            status = {text_status: "Pending Payment Response", value_status: "5"};
-            return status;
-        }
-        if (orderStatusVariables[0].approval_request === "1" & orderStatusVariables[0].artwork_setup == "1" & (orderStatusVariables[0].payment == "1" || "2" || "3") & (orderStatusVariables[0].stock == "1" || "3")) {
-            status = {text_status: "Queued For Printing", value_status: "12"};
-            return status;
-        }
+
         return status;
     }
 
-    function createSearch() {
-        search.create({
-            type: search.Type.SALES_ORDER,
-            filters:
-                [{
-                    name: 'tranid',
-                    operator: search.Operator.IS,
-                    values: [jobnumber]
-                }],
-        }).run().each(processResult);
+    function _getJob (refnum) {
+        try {
+            var finder = search.create({
+                type: search.Type.SALES_ORDER,
+                filters: [
+                    {
+                        name: 'tranid',
+                        operator: search.Operator.IS,
+                        values: refnum
+                    }
+                ]
+            }).run().getRange({start: 0, end: 1});
 
-        function processResult(result) {
-            id = result.id;
-            log.debug({});
-            return true;
+            if (finder.length) {
+
+                var job = _loadJob(finder[0]);
+
+                if (job) {
+                    _job.status = 'success';
+                    _job.message = 'Job was found.';
+                    _job.job = job;
+                } else {
+                    // issue with loading Job
+                }
+
+            } else {
+                _job.status = 'error';
+                _job.message = 'Job not found.';
+                _job.job = null;
+            }
+        } catch (e) {
+            /**
+             * added in case Job Number variable is modified or not provided
+             * this would ideally be include in a test suite
+             */
+            return e;
         }
+
+        return _job;
     }
 
-    function inspect(context) {
-        jobnumber = context.request.parameters.jobNumber;
+    function getJob (context) {
+        if (context.request.parameters.refnum) {
+            _job = _getJob(context.request.parameters.refnum);
+        } else {
+            _job = {
+                status: 'error',
+                message: 'something went wrong'
+            }
+        }
 
         context.response.setHeader({
             name: 'Content-Type',
             value: 'application/json; charset=utf-8'
         });
-        createSearch();
-        if (id === "") {
-            data.push({has_data: "false"});
-        } else {
-            loadRecord();
-        }
 
-        context.response.write(JSON.stringify({
-            data: data,
-        }));
+        context.response.write(JSON.stringify(_job));
     }
 
     return {
-        onRequest: inspect
+        onRequest: getJob
     }
 });
-
